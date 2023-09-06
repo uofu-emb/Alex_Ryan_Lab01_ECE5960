@@ -31,6 +31,12 @@ K_THREAD_STACK_DEFINE(coop_stack, STACKSIZE);
 int counter;
 bool led_is_on;
 
+void toggle_LED(struct device *dev, unsigned int pin_num, bool *led_status)
+{
+	gpio_pin_set(dev, pin_num, (int) *led_status);
+	*led_status = !*led_status;
+}
+
 void thread_entry(void)
 {
     // Get the same values for LED1 as at the beginning of main for LED0
