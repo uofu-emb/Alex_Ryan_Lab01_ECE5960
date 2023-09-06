@@ -2,6 +2,7 @@
 #include <device.h>
 #include <devicetree.h>
 #include <drivers/gpio.h>
+#include "blink.h"
 
 #define LED0_NODE DT_ALIAS(led0)
 #define LED1_NODE DT_ALIAS(led1)
@@ -31,20 +32,13 @@ K_THREAD_STACK_DEFINE(coop_stack, STACKSIZE);
 int counter;
 bool led_is_on;
 
-void toggle_LED(struct device *dev, unsigned int pin_num, bool *led_status)
-{
-	gpio_pin_set(dev, pin_num, (int) *led_status);
-	*led_status = !*led_status;
-}
 
 void thread_entry(void)
 {
     // Get the same values for LED1 as at the beginning of main for LED0
-    const struct device *dev;
-    dev = device_get_binding(LED1);
-    bool led_is_on = true;
-	int ret = gpio_pin_configure(dev, PIN1, GPIO_OUTPUT_ACTIVE | FLAGS0);
-
+	bool led_is_on;
+    const struct device *dev = led_setup(LED1, &led_is_on, PIN1, GPIO_OUTPUT_ACTIVE | FLAGS0);
+    
     // Set up a k_timer to keep track of time
 	struct k_timer t;
 	k_timer_init(&t, NULL, NULL);
@@ -52,8 +46,9 @@ void thread_entry(void)
     // Increment a counter every time the loop runs and change the status of the LED.
 	while (1) {
         counter = counter + 1;
-		gpio_pin_set(dev, PIN1, (int)led_is_on);
-		led_is_on = !led_is_on;
+		// gpio_pin_set(dev, PIN1, (int)led_is_on);
+		// led_is_on = !led_is_on;
+		toggle_LED(dev, PIN1, &led_is_on);
         // Start the k_timer on an interval of 2 seconds. 
 		k_timer_start(&t, K_MSEC(2000), K_NO_WAIT);
 		k_timer_status_sync(&t);
@@ -63,12 +58,7 @@ void thread_entry(void)
 void main(void)
 {
     // Create a device struct pointer, assume led is on, and create a local int to capture return value of configure.
-	const struct device *dev;
-	led_is_on = true;
-	int ret;
-
-    // set device pointer to memory mapped io location for LED0.
-	dev = device_get_binding(LED0);
+	const struct device *dev = led_setup(LED0, &led_is_on, PIN0, GPIO_OUTPUT_ACTIVE | FLAGS0);
 
     // Create a thread for doing stuff related to a k_thread.
     k_thread_create(&coop_thread,
@@ -86,17 +76,9 @@ void main(void)
 	if (dev == NULL) {
 		return;
 	}
-
-    // configure the pin to be output for led setting. If this fails, exit early.
-	ret = gpio_pin_configure(dev, PIN0, GPIO_OUTPUT_ACTIVE | FLAGS0);
-	if (ret < 0) {
-		return;
-	}
-
     // Alternate the status of the LED every half second.
 	while (1) {
-		gpio_pin_set(dev, PIN0, (int)led_is_on);
-		led_is_on = !led_is_on;
+		toggle_LED(dev, PIN0, &led_is_on);
 		k_msleep(500);
 	}
 }
