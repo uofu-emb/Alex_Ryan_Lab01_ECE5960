@@ -37,7 +37,8 @@ void thread_entry(void)
 {
     // Get the same values for LED1 as at the beginning of main for LED0
 	bool led_is_on;
-    const struct device *dev = led_setup(LED1, &led_is_on, PIN1, GPIO_OUTPUT_ACTIVE | FLAGS0);
+    const struct device *dev = device_get_binding(LED1);
+	int ret = led_setup(dev, &led_is_on, PIN1, GPIO_OUTPUT_ACTIVE | FLAGS0, &counter);
     
     // Set up a k_timer to keep track of time
 	struct k_timer t;
@@ -45,10 +46,7 @@ void thread_entry(void)
 
     // Increment a counter every time the loop runs and change the status of the LED.
 	while (1) {
-        counter = counter + 1;
-		// gpio_pin_set(dev, PIN1, (int)led_is_on);
-		// led_is_on = !led_is_on;
-		toggle_LED(dev, PIN1, &led_is_on);
+		toggle_LED(dev, PIN1, &led_is_on, &counter);
         // Start the k_timer on an interval of 2 seconds. 
 		k_timer_start(&t, K_MSEC(2000), K_NO_WAIT);
 		k_timer_status_sync(&t);
@@ -57,8 +55,10 @@ void thread_entry(void)
 
 void main(void)
 {
+	int counter;
     // Create a device struct pointer, assume led is on, and create a local int to capture return value of configure.
-	const struct device *dev = led_setup(LED0, &led_is_on, PIN0, GPIO_OUTPUT_ACTIVE | FLAGS0);
+	const struct device *dev = device_get_binding(LED0);
+	int ret = led_setup(dev, &led_is_on, PIN0, GPIO_OUTPUT_ACTIVE | FLAGS0, &counter);
 
     // Create a thread for doing stuff related to a k_thread.
     k_thread_create(&coop_thread,
@@ -76,9 +76,12 @@ void main(void)
 	if (dev == NULL) {
 		return;
 	}
+	if (ret != 0) {
+		return;
+	}
     // Alternate the status of the LED every half second.
 	while (1) {
-		toggle_LED(dev, PIN0, &led_is_on);
+		toggle_LED(dev, PIN0, &led_is_on, &counter);
 		k_msleep(500);
 	}
 }
